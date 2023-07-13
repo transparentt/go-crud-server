@@ -1,39 +1,30 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
+	"net/http"
+	"os"
+
+	middleware "github.com/deepmap/oapi-codegen/pkg/chi-middleware"
+	"github.com/go-chi/chi/v5"
+	"github.com/transparentt/go-crud-server/openapi"
 )
 
-type Foo struct {
-	X int
-	Y int
-}
-
 func main() {
-	for _, v := range []int{1, 2, 3, 4, 5} {
-		fmt.Println(v)
-		if v%2 == 0 {
-			fmt.Println("Hello World!")
-		}
-
-		foo := Foo{}
-		foo.X = 123
-		foo.Y = 456
-
-		bar := Bar(foo)
-		byte, err := json.Marshal(bar)
-		if err != nil {
-			fmt.Println(err)
-		}
-		fmt.Println(string(byte))
-
+	swagger, err := openapi.GetSwagger()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading swagger spec\n: %s", err)
+		os.Exit(1)
 	}
-}
 
-func Bar(foo Foo) Foo {
-	foo.X = foo.X * 100
-	foo.Y = foo.Y * 100
+	swagger.Servers = nil
 
-	return foo
+	server := openapi.NewServer()
+
+	router := chi.NewRouter()
+	router.Use(middleware.OapiRequestValidator(swagger)) // validation
+
+	openapi.HandlerFromMux(server, router)
+
+	http.ListenAndServe("localhost:8080", router)
 }
